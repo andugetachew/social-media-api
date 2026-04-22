@@ -44,3 +44,14 @@ class Like(models.Model):
 
     def __str__(self):
         return f"{self.user.username} liked {self.post.id}"
+
+
+class PostImage(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="images")
+    image = models.ImageField(upload_to="post_gallery/")
+    order = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["order"]
