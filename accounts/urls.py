@@ -9,6 +9,8 @@ from .views import (
     UpdateOnlineStatusView,
     UserStatusView,
 )
+from rest_framework_simplejwt.views import TokenRefreshView
+from .views import UpdateProfileView, UpdatePasswordView, UpdateProfilePhotoView
 
 urlpatterns = [
     path("register/", RegisterView.as_view(), name="register"),
@@ -19,4 +21,8 @@ urlpatterns = [
     path("users/", UserSearchView.as_view(), name="user-search"),
     path("online/", UpdateOnlineStatusView.as_view(), name="update-online"),
     path("status/<uuid:user_id>/", UserStatusView.as_view(), name="user-status"),
+    path("refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("update-profile/", UpdateProfileView.as_view(), name="update-profile"),
+    path("update-password/", UpdatePasswordView.as_view(), name="update-password"),
+    path("update-photo/", UpdateProfilePhotoView.as_view(), name="update-photo"),
 ]

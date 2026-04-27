@@ -4,22 +4,23 @@ from django.shortcuts import render
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import RegisterSerializer, LoginSerializer, UserSerializer
 from .services import UserService
 from django.contrib.auth import get_user_model
 from .serializers import UserSerializer
-from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.core.mail import send_mail
 from django.conf import settings
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework import status
 from .models import User
-from .serializers import UserSerializer
+
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+
+from django.contrib.auth import authenticate
+from django.db.models import Q
+
 
 User = get_user_model()
 
@@ -155,21 +156,43 @@ class RegisterView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+from django.contrib.auth import authenticate
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.tokens import RefreshToken
+from .serializers import UserSerializer
+from .models import User
+
+
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        serializer = LoginSerializer(data=request.data)
-        if serializer.is_valid():
-            try:
-                result = UserService.login_user(
-                    email=serializer.validated_data["email"],
-                    password=serializer.validated_data["password"],
+        email = request.data.get("email")
+        password = request.data.get("password")
+
+        if not email or not password:
+            return Response({"error": "Email and password required"}, status=400)
+
+        # Try to find user by email
+        try:
+            user = User.objects.get(email=email)
+
+            # Check password
+            if user.check_password(password):
+                refresh = RefreshToken.for_user(user)
+                return Response(
+                    {
+                        "access": str(refresh.access_token),
+                        "refresh": str(refresh),
+                        "user": UserSerializer(user).data,
+                    }
                 )
-                return Response(result, status=status.HTTP_200_OK)
-            except ValueError as e:
-                return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except User.DoesNotExist:
+            pass
+
+        return Response({"error": "Invalid credentials"}, status=401)
 
 
 class MeView(APIView):
@@ -219,3 +242,62 @@ class UserSearchView(APIView):
             users = User.objects.none()
         serializer = UserSerializer(users, many=True)
         return Response(serializer.data)
+
+
+class UpdateProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request):
+        user = request.user
+        data = request.data
+
+        # Update username
+        if "username" in data:
+            user.username = data["username"]
+
+        # Update email
+        if "email" in data:
+            user.email = data["email"]
+
+        # Update bio
+        if "bio" in data:
+            user.bio = data["bio"]
+
+        user.save()
+        return Response(UserSerializer(user).data)
+
+
+class UpdatePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        old_password = request.data.get("old_password")
+        new_password = request.data.get("new_password")
+
+        if not user.check_password(old_password):
+            return Response({"error": "Wrong password"}, status=400)
+
+        try:
+            validate_password(new_password, user)
+        except ValidationError as e:
+            return Response({"error": e.messages}, status=400)
+
+        user.set_password(new_password)
+        user.save()
+        return Response({"message": "Password updated successfully"})
+
+
+class UpdateProfilePhotoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if "profile_picture" not in request.FILES:
+            return Response({"error": "No image provided"}, status=400)
+
+        user = request.user
+        user.profile_picture = request.FILES["profile_picture"]
+        user.save()
+        return Response(
+            {"message": "Profile photo updated", "url": user.profile_picture.url}
+        )

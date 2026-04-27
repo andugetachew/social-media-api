@@ -50,6 +50,10 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username"]
+    profile_picture = models.ImageField(
+        upload_to="profile_pics/", blank=True, null=True
+    )
+    full_name = models.CharField(max_length=255, blank=True, null=True)
 
     class Meta:
         db_table = "users"
