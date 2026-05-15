@@ -1,6 +1,3 @@
-from django.shortcuts import render
-
-# Create your views here.
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -14,21 +11,12 @@ from django.utils import timezone
 from django.core.mail import send_mail
 from django.conf import settings
 from .models import User
-
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-
 from django.contrib.auth import authenticate
 from django.db.models import Q
 
-
 User = get_user_model()
-
-
-from django.core.mail import send_mail
-from django.conf import settings
-from .models import User
-from django.utils import timezone
 
 
 class UpdateOnlineStatusView(APIView):
@@ -169,28 +157,31 @@ class LoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        email = request.data.get("email")
+        email_or_username = request.data.get("email")
         password = request.data.get("password")
 
-        if not email or not password:
-            return Response({"error": "Email and password required"}, status=400)
+        if not email_or_username or not password:
+            return Response(
+                {"error": "Email/Username and password required"}, status=400
+            )
 
-        # Try to find user by email
         try:
-            user = User.objects.get(email=email)
-
-            # Check password
-            if user.check_password(password):
-                refresh = RefreshToken.for_user(user)
-                return Response(
-                    {
-                        "access": str(refresh.access_token),
-                        "refresh": str(refresh),
-                        "user": UserSerializer(user).data,
-                    }
-                )
+            if "@" in email_or_username:
+                user = User.objects.get(email=email_or_username)
+            else:
+                user = User.objects.get(username=email_or_username)
         except User.DoesNotExist:
-            pass
+            return Response({"error": "Invalid credentials"}, status=401)
+
+        if user.check_password(password):
+            refresh = RefreshToken.for_user(user)
+            return Response(
+                {
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh),
+                    "user": UserSerializer(user).data,
+                }
+            )
 
         return Response({"error": "Invalid credentials"}, status=401)
 
@@ -251,15 +242,12 @@ class UpdateProfileView(APIView):
         user = request.user
         data = request.data
 
-        # Update username
         if "username" in data:
             user.username = data["username"]
 
-        # Update email
         if "email" in data:
             user.email = data["email"]
 
-        # Update bio
         if "bio" in data:
             user.bio = data["bio"]
 
