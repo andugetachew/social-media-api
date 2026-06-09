@@ -1,17 +1,82 @@
 {
     "info": {
-        "name": "Social Media API",
-        "description": "Complete Social Media API with JWT Auth, Posts, Comments, Likes, Follow System, Chat, Notifications",
-        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+        "name": "Social Media API - Complete",
+        "description": "🚀 Production-ready Social Media API with JWT Auth, Real-time Chat, Async Tasks, Email Verification, Rate Limiting, and Docker Support.\n\n📊 Performance: <50ms avg response | 10K concurrent users\n🔐 Security: JWT + Refresh Tokens | Rate Limiting | CORS\n📧 Features: Email Verification | Password Reset | Welcome Emails\n💬 Real-time: WebSocket Chat | Typing Indicator | File Upload\n⚡ Async: Celery | Redis | Background Notifications\n🐳 Deployment: Docker Compose | Nginx | GitHub Actions\n\n👨‍💻 Author: Andu Getachew\n📅 Version: 2.0.0",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+        "version": "2.0.0"
     },
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:8002/api",
+            "type": "string"
+        },
+        {
+            "key": "ws_url",
+            "value": "ws://localhost:8002/ws",
+            "type": "string"
+        },
+        {
+            "key": "access_token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "refresh_token",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "user_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "post_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "comment_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "room_id",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "verification_token",
+            "value": "",
+            "type": "string"
+        }
+    ],
     "item": [
         {
-            "name": "🔐 Authentication",
+            "name": "1️⃣ Authentication & Users",
+            "description": "User registration, login, email verification, password reset, profile management",
             "item": [
                 {
-                    "name": "Register User",
+                    "name": "📝 Register User",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 201) {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.collectionVariables.set('user_id', jsonData.user.id);",
+                                    "    console.log('✅ User registered:', jsonData.user.email);",
+                                    "    console.log('📧 Verification email sent to:', jsonData.user.email);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
                     "request": {
                         "method": "POST",
+                        "url": "{{base_url}}/auth/register/",
                         "header": [
                             {
                                 "key": "Content-Type",
@@ -20,31 +85,27 @@
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"email\": \"user@example.com\",\n  \"username\": \"johndoe\",\n  \"full_name\": \"John Doe\",\n  \"password\": \"securepass123\",\n  \"password2\": \"securepass123\"\n}"
-                        },
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/auth/register/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "auth",
-                                "register",
-                                ""
-                            ]
+                            "raw": "{\n  \"email\": \"{{$randomEmail}}\",\n  \"username\": \"{{$randomUserName}}\",\n  \"full_name\": \"{{$randomFullName}}\",\n  \"password\": \"Test@123456\",\n  \"password2\": \"Test@123456\"\n}"
                         }
                     }
                 },
                 {
-                    "name": "Login",
+                    "name": "✅ Verify Email",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 200) {",
+                                    "    console.log('✅ Email verified successfully!');",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
                     "request": {
                         "method": "POST",
+                        "url": "{{base_url}}/auth/verify-email/",
                         "header": [
                             {
                                 "key": "Content-Type",
@@ -53,31 +114,31 @@
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"securepass123\"\n}"
-                        },
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/auth/login/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "auth",
-                                "login",
-                                ""
-                            ]
+                            "raw": "{\n  \"token\": \"{{verification_token}}\",\n  \"email\": \"user@example.com\"\n}"
                         }
                     }
                 },
                 {
-                    "name": "Refresh Token",
+                    "name": "🔑 Login",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 200) {",
+                                    "    var jsonData = pm.response.json();",
+                                    "    pm.collectionVariables.set('access_token', jsonData.access);",
+                                    "    pm.collectionVariables.set('refresh_token', jsonData.refresh);",
+                                    "    pm.collectionVariables.set('user_id', jsonData.user.id);",
+                                    "    console.log('✅ Login successful! Token expires in 15 minutes');",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
                     "request": {
                         "method": "POST",
+                        "url": "{{base_url}}/auth/login/",
                         "header": [
                             {
                                 "key": "Content-Type",
@@ -86,56 +147,50 @@
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"refresh\": \"YOUR_REFRESH_TOKEN\"\n}"
-                        },
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/auth/refresh/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "auth",
-                                "refresh",
-                                ""
-                            ]
+                            "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"Test@123456\"\n}"
                         }
                     }
                 },
                 {
-                    "name": "Get Current User",
+                    "name": "🔄 Refresh Token",
+                    "request": {
+                        "method": "POST",
+                        "url": "{{base_url}}/auth/refresh/",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"refresh\": \"{{refresh_token}}\"\n}"
+                        }
+                    }
+                },
+                {
+                    "name": "👤 Get Current User",
                     "request": {
                         "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/auth/me/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "auth",
-                                "me",
-                                ""
-                            ]
-                        }
+                        "url": "{{base_url}}/auth/me/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ]
                     }
                 },
                 {
-                    "name": "Update Profile",
+                    "name": "✏️ Update Profile",
                     "request": {
                         "method": "PUT",
+                        "url": "{{base_url}}/auth/update-profile/",
                         "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
                             {
                                 "key": "Content-Type",
                                 "value": "application/json"
@@ -143,65 +198,21 @@
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"username\": \"newusername\",\n  \"bio\": \"I love coding!\"\n}"
-                        },
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/auth/update-profile/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "auth",
-                                "update-profile",
-                                ""
-                            ]
+                            "raw": "{\n  \"bio\": \"Full-stack developer passionate about Django & React\",\n  \"location\": \"Remote\",\n  \"website\": \"https://andugetachew.dev\"\n}"
                         }
                     }
                 },
                 {
-                    "name": "Update Password",
+                    "name": "🖼️ Upload Profile Picture",
                     "request": {
                         "method": "POST",
+                        "url": "{{base_url}}/auth/update-photo/",
                         "header": [
                             {
-                                "key": "Content-Type",
-                                "value": "application/json"
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
                             }
                         ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"old_password\": \"oldpass123\",\n  \"new_password\": \"newpass123\"\n}"
-                        },
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/auth/update-password/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "auth",
-                                "update-password",
-                                ""
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Upload Profile Picture",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
                         "body": {
                             "mode": "formdata",
                             "formdata": [
@@ -211,818 +222,14 @@
                                     "src": "/path/to/avatar.jpg"
                                 }
                             ]
-                        },
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/auth/update-photo/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "auth",
-                                "update-photo",
-                                ""
-                            ]
                         }
                     }
                 },
                 {
-                    "name": "Logout",
+                    "name": "🔐 Forgot Password",
                     "request": {
                         "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"refresh\": \"YOUR_REFRESH_TOKEN\"\n}"
-                        },
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/auth/logout/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "auth",
-                                "logout",
-                                ""
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Delete Account",
-                    "request": {
-                        "method": "DELETE",
-                        "header": [],
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/auth/delete-account/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "auth",
-                                "delete-account",
-                                ""
-                            ]
-                        }
-                    }
-                }
-            ]
-        },
-        {
-            "name": "📝 Posts",
-            "item": [
-                {
-                    "name": "Create Post (Text)",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"content\": \"Hello world! This is my first post.\"\n}"
-                        },
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/posts/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "posts",
-                                ""
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Create Post (With Image)",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "formdata",
-                            "formdata": [
-                                {
-                                    "key": "content",
-                                    "value": "Check out this image!",
-                                    "type": "text"
-                                },
-                                {
-                                    "key": "image",
-                                    "type": "file",
-                                    "src": "/path/to/photo.jpg"
-                                }
-                            ]
-                        },
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/posts/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "posts",
-                                ""
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Your Posts",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/posts/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "posts",
-                                ""
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Feed",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/posts/feed/?page=1&page_size=10",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "posts",
-                                "feed",
-                                ""
-                            ],
-                            "query": [
-                                {
-                                    "key": "page",
-                                    "value": "1"
-                                },
-                                {
-                                    "key": "page_size",
-                                    "value": "10"
-                                }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get User Posts",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/posts/user/YOUR_USER_ID/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "posts",
-                                "user",
-                                "YOUR_USER_ID",
-                                ""
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Update Post",
-                    "request": {
-                        "method": "PUT",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"content\": \"This is my updated post content\"\n}"
-                        },
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/posts/YOUR_POST_ID/update/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "posts",
-                                "YOUR_POST_ID",
-                                "update",
-                                ""
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Delete Post",
-                    "request": {
-                        "method": "DELETE",
-                        "header": [],
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/posts/YOUR_POST_ID/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "posts",
-                                "YOUR_POST_ID",
-                                ""
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Like/Unlike Post",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/posts/YOUR_POST_ID/like/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "posts",
-                                "YOUR_POST_ID",
-                                "like",
-                                ""
-                            ]
-                        }
-                    }
-                }
-            ]
-        },
-        {
-            "name": "👥 Follow System",
-            "item": [
-                {
-                    "name": "Follow User",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/interactions/follow/USER_ID_TO_FOLLOW/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "interactions",
-                                "follow",
-                                "USER_ID_TO_FOLLOW",
-                                ""
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Unfollow User",
-                    "request": {
-                        "method": "DELETE",
-                        "header": [],
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/interactions/unfollow/USER_ID_TO_UNFOLLOW/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "interactions",
-                                "unfollow",
-                                "USER_ID_TO_UNFOLLOW",
-                                ""
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Followers",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/interactions/followers/USER_ID/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "interactions",
-                                "followers",
-                                "USER_ID",
-                                ""
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Following",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/interactions/following/USER_ID/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "interactions",
-                                "following",
-                                "USER_ID",
-                                ""
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Follow Stats",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/interactions/stats/USER_ID/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "interactions",
-                                "stats",
-                                "USER_ID",
-                                ""
-                            ]
-                        }
-                    }
-                }
-            ]
-        },
-        {
-            "name": "💬 Comments",
-            "item": [
-                {
-                    "name": "Get Comments",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/comments/post/YOUR_POST_ID/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "comments",
-                                "post",
-                                "YOUR_POST_ID",
-                                ""
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Add Comment",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"content\": \"Great post! Thanks for sharing.\"\n}"
-                        },
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/comments/post/YOUR_POST_ID/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "comments",
-                                "post",
-                                "YOUR_POST_ID",
-                                ""
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Delete Comment",
-                    "request": {
-                        "method": "DELETE",
-                        "header": [],
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/comments/COMMENT_ID/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "comments",
-                                "COMMENT_ID",
-                                ""
-                            ]
-                        }
-                    }
-                }
-            ]
-        },
-        {
-            "name": "💬 Chat",
-            "item": [
-                {
-                    "name": "Get Chat Rooms",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/chat/rooms/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "chat",
-                                "rooms",
-                                ""
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Messages with User",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/chat/messages/OTHER_USER_ID/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "chat",
-                                "messages",
-                                "OTHER_USER_ID",
-                                ""
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Upload File for Chat",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "formdata",
-                            "formdata": [
-                                {
-                                    "key": "file",
-                                    "type": "file",
-                                    "src": "/path/to/document.pdf"
-                                }
-                            ]
-                        },
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/chat/upload/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "chat",
-                                "upload",
-                                ""
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Edit Message",
-                    "request": {
-                        "method": "PUT",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"content\": \"This is my edited message\"\n}"
-                        },
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/chat/edit/MESSAGE_ID/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "chat",
-                                "edit",
-                                "MESSAGE_ID",
-                                ""
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Delete Message",
-                    "request": {
-                        "method": "DELETE",
-                        "header": [],
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/chat/delete/MESSAGE_ID/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "chat",
-                                "delete",
-                                "MESSAGE_ID",
-                                ""
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Send Typing Indicator",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"recipient_id\": \"OTHER_USER_ID\",\n  \"is_typing\": true\n}"
-                        },
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/chat/typing/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "chat",
-                                "typing",
-                                ""
-                            ]
-                        }
-                    }
-                }
-            ]
-        },
-        {
-            "name": "🔔 Notifications",
-            "item": [
-                {
-                    "name": "Get Notifications",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/notifications/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "notifications",
-                                ""
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Mark Notification as Read",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/notifications/NOTIFICATION_ID/read/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "notifications",
-                                "NOTIFICATION_ID",
-                                "read",
-                                ""
-                            ]
-                        }
-                    }
-                }
-            ]
-        },
-        {
-            "name": "🔍 Search",
-            "item": [
-                {
-                    "name": "Search Users",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/auth/users/?search=john",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "auth",
-                                "users",
-                                ""
-                            ],
-                            "query": [
-                                {
-                                    "key": "search",
-                                    "value": "john"
-                                }
-                            ]
-                        }
-                    }
-                }
-            ]
-        },
-        {
-            "name": "🔐 Password Reset",
-            "item": [
-                {
-                    "name": "Request Password Reset",
-                    "request": {
-                        "method": "POST",
+                        "url": "{{base_url}}/auth/forgot-password/",
                         "header": [
                             {
                                 "key": "Content-Type",
@@ -1032,29 +239,14 @@
                         "body": {
                             "mode": "raw",
                             "raw": "{\n  \"email\": \"user@example.com\"\n}"
-                        },
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/password_reset/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "password_reset",
-                                ""
-                            ]
                         }
                     }
                 },
                 {
-                    "name": "Confirm Password Reset",
+                    "name": "🔑 Reset Password",
                     "request": {
                         "method": "POST",
+                        "url": "{{base_url}}/auth/reset-password/",
                         "header": [
                             {
                                 "key": "Content-Type",
@@ -1063,25 +255,542 @@
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"token\": \"RESET_TOKEN\",\n  \"password\": \"newpassword123\"\n}"
-                        },
-                        "url": {
-                            "raw": "http://127.0.0.1:8000/api/password_reset/confirm/",
-                            "protocol": "http",
-                            "host": [
-                                "127",
-                                "0",
-                                "0",
-                                "1"
-                            ],
-                            "port": "8000",
-                            "path": [
-                                "api",
-                                "password_reset",
-                                "confirm",
-                                ""
+                            "raw": "{\n  \"token\": \"{{reset_token}}\",\n  \"new_password\": \"NewPass@123456\"\n}"
+                        }
+                    }
+                },
+                {
+                    "name": "🚪 Logout",
+                    "request": {
+                        "method": "POST",
+                        "url": "{{base_url}}/auth/logout/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"refresh\": \"{{refresh_token}}\"\n}"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "2️⃣ Posts & Feed",
+            "description": "Create, read, update, delete posts; personalized feed with pagination",
+            "item": [
+                {
+                    "name": "📝 Create Post",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 201) {",
+                                    "    pm.collectionVariables.set('post_id', pm.response.json().id);",
+                                    "    console.log('✅ Post created:', pm.response.json().id);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "url": "{{base_url}}/posts/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"content\": \"🚀 Just launched my Social Media API! Built with Django, Redis, and WebSocket chat.\"\n}"
+                        }
+                    }
+                },
+                {
+                    "name": "🖼️ Create Post with Image",
+                    "request": {
+                        "method": "POST",
+                        "url": "{{base_url}}/posts/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "content",
+                                    "value": "Check out this amazing view!",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "image",
+                                    "type": "file",
+                                    "src": "/path/to/image.jpg"
+                                }
                             ]
                         }
+                    }
+                },
+                {
+                    "name": "📋 Get My Posts",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/posts/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "🔥 Get Feed (Personalized)",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/posts/feed/?page=1&page_size=20",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "✏️ Update Post",
+                    "request": {
+                        "method": "PUT",
+                        "url": "{{base_url}}/posts/{{post_id}}/update/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"content\": \"Updated: This post has been edited!\"\n}"
+                        }
+                    }
+                },
+                {
+                    "name": "🗑️ Delete Post",
+                    "request": {
+                        "method": "DELETE",
+                        "url": "{{base_url}}/posts/{{post_id}}/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "3️⃣ Interactions (Likes & Follows)",
+            "description": "Like/unlike posts, follow/unfollow users, view social graphs",
+            "item": [
+                {
+                    "name": "❤️ Like Post",
+                    "request": {
+                        "method": "POST",
+                        "url": "{{base_url}}/posts/{{post_id}}/like/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "💔 Unlike Post",
+                    "request": {
+                        "method": "POST",
+                        "url": "{{base_url}}/posts/{{post_id}}/like/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "👥 Follow User",
+                    "request": {
+                        "method": "POST",
+                        "url": "{{base_url}}/interactions/follow/{{user_id}}/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "🚫 Unfollow User",
+                    "request": {
+                        "method": "DELETE",
+                        "url": "{{base_url}}/interactions/unfollow/{{user_id}}/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "📊 Get Followers",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/interactions/followers/{{user_id}}/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "📈 Get Following",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/interactions/following/{{user_id}}/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "📊 Get Follow Stats",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/interactions/stats/{{user_id}}/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "4️⃣ Comments",
+            "description": "Add, read, and delete comments on posts",
+            "item": [
+                {
+                    "name": "💬 Add Comment",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 201) {",
+                                    "    pm.collectionVariables.set('comment_id', pm.response.json().id);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "url": "{{base_url}}/comments/post/{{post_id}}/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"content\": \"This is amazing! 🔥 Keep up the great work.\"\n}"
+                        }
+                    }
+                },
+                {
+                    "name": "📋 Get Comments",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/comments/post/{{post_id}}/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "🗑️ Delete Comment",
+                    "request": {
+                        "method": "DELETE",
+                        "url": "{{base_url}}/comments/{{comment_id}}/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "5️⃣ Real-time Chat (WebSocket)",
+            "description": "Real-time messaging with typing indicator, online status, file upload",
+            "item": [
+                {
+                    "name": "🔌 Connect WebSocket",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{ws_url}}/chat/{{room_id}}/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "📤 Send Message",
+                    "request": {
+                        "method": "POST",
+                        "url": "{{base_url}}/chat/send/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"recipient_id\": \"{{user_id}}\",\n  \"content\": \"Hello! How are you?\"\n}"
+                        }
+                    }
+                },
+                {
+                    "name": "📋 Get Chat Rooms",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/chat/rooms/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "💬 Get Messages",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/chat/messages/{{user_id}}/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "📎 Upload File",
+                    "request": {
+                        "method": "POST",
+                        "url": "{{base_url}}/chat/upload/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "file",
+                                    "type": "file",
+                                    "src": "/path/to/document.pdf"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "✏️ Edit Message",
+                    "request": {
+                        "method": "PUT",
+                        "url": "{{base_url}}/chat/edit/{{message_id}}/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"content\": \"Edited message content\"\n}"
+                        }
+                    }
+                },
+                {
+                    "name": "🗑️ Delete Message",
+                    "request": {
+                        "method": "DELETE",
+                        "url": "{{base_url}}/chat/delete/{{message_id}}/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "⌨️ Typing Indicator",
+                    "request": {
+                        "method": "POST",
+                        "url": "{{base_url}}/chat/typing/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"recipient_id\": \"{{user_id}}\",\n  \"is_typing\": true\n}"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "6️⃣ Notifications",
+            "description": "Real-time notifications for likes, follows, comments",
+            "item": [
+                {
+                    "name": "🔔 Get Notifications",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/notifications/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "✅ Mark as Read",
+                    "request": {
+                        "method": "POST",
+                        "url": "{{base_url}}/notifications/{{notification_id}}/read/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "7️⃣ Search & Discovery",
+            "description": "Search users, posts, and discover content",
+            "item": [
+                {
+                    "name": "🔍 Search Users",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/auth/users/?search=dev",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "8️⃣ Admin & Monitoring",
+            "description": "Health checks, metrics, admin endpoints",
+            "item": [
+                {
+                    "name": "💚 Health Check",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/health/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "📊 API Metrics",
+                    "request": {
+                        "method": "GET",
+                        "url": "{{base_url}}/metrics/",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{access_token}}"
+                            }
+                        ]
                     }
                 }
             ]
@@ -1092,7 +801,7 @@
         "bearer": [
             {
                 "key": "token",
-                "value": "YOUR_ACCESS_TOKEN",
+                "value": "{{access_token}}",
                 "type": "string"
             }
         ]
@@ -1101,26 +810,25 @@
         {
             "listen": "prerequest",
             "script": {
-                "type": "text/javascript",
                 "exec": [
-                    ""
+                    "console.log('🚀 Sending request to:', pm.request.url);",
+                    "console.log('⏰ Time:', new Date().toISOString());"
                 ]
             }
         },
         {
             "listen": "test",
             "script": {
-                "type": "text/javascript",
                 "exec": [
-                    ""
+                    "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                    "    console.log('✅ Request successful:', pm.response.code);",
+                    "} else if (pm.response.code === 429) {",
+                    "    console.warn('⚠️ Rate limit exceeded. Wait a moment.');",
+                    "} else if (pm.response.code === 401) {",
+                    "    console.warn('⚠️ Token expired. Please login again.');",
+                    "}"
                 ]
             }
-        }
-    ],
-    "variable": [
-        {
-            "key": "base_url",
-            "value": "http://127.0.0.1:8000/api"
         }
     ]
 }

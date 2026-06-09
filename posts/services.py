@@ -51,16 +51,19 @@ class PostService:
 
     @staticmethod
     def toggle_like(user_id: str, post_id: str) -> Dict:
-        """Like if not liked, unlike if already liked."""
-        like, created = Like.objects.get_or_create(user_id=user_id, post_id=post_id)
+        # Check post exists first
+        try:
+            Post.objects.get(id=post_id)
+        except Post.DoesNotExist:
+            raise ValueError("Post not found")
 
+        like, created = Like.objects.get_or_create(user_id=user_id, post_id=post_id)
         if not created:
             like.delete()
             return {
                 "liked": False,
                 "likes_count": Like.objects.filter(post_id=post_id).count(),
             }
-
         return {
             "liked": True,
             "likes_count": Like.objects.filter(post_id=post_id).count(),

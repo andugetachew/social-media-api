@@ -5,23 +5,23 @@ from rest_framework import status
 from django.db import IntegrityError
 from accounts.models import User
 from .models import Follow
+from notify.tasks import create_follow_notification
 
 
 class FollowUserView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, user_id):
-        """Follow a user."""
-        if str(request.user.id) == user_id:
+        if request.user.id == user_id:  # UUID to UUID comparison
             return Response({"error": "You cannot follow yourself"}, status=400)
-
         try:
             follow = Follow.objects.create(follower=request.user, following_id=user_id)
+            create_follow_notification.delay(str(request.user.id), str(user_id))
             return Response(
                 {
                     "status": "following",
                     "follower_id": str(request.user.id),
-                    "following_id": user_id,
+                    "following_id": str(user_id),
                 },
                 status=201,
             )

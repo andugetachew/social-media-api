@@ -1,6 +1,7 @@
 import uuid
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 
 
 class Post(models.Model):
@@ -11,7 +12,7 @@ class Post(models.Model):
     content = models.TextField(max_length=280)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    # Add to your Post model
+
     is_flagged = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     moderation_reasons = models.TextField(blank=True, null=True)

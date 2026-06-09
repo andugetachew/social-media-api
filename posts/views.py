@@ -11,8 +11,7 @@ from rest_framework.pagination import PageNumberPagination
 from django.db.models import QuerySet
 from interactions.models import Follow
 
-# from moderation.tasks import check_post_toxicity
-
+from notify.tasks import create_like_notification
 from core.permissions import IsOwner
 
 
@@ -108,6 +107,17 @@ class PostDetailView(APIView):
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
+    def put(self, request, post_id):  # ← add this
+        try:
+            post = Post.objects.get(id=post_id, author=request.user)
+            serializer = CreatePostSerializer(post, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(PostSerializer(post, context={"request": request}).data)
+            return Response(serializer.errors, status=400)
+        except Post.DoesNotExist:
+            return Response({"error": "Post not found"}, status=404)
+
     def delete(self, request, post_id):
         try:
             PostService.delete_post(str(request.user.id), post_id)
@@ -154,3 +164,21 @@ class PostUpdateView(APIView):
             return Response(serializer.errors, status=400)
         except Post.DoesNotExist:
             return Response({"error": "Post not found"}, status=404)
+
+
+class LikeToggleView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, post_id):
+        try:
+            result = PostService.toggle_like(str(request.user.id), post_id)
+            # Send notification to post owner if liked
+            if result["liked"]:
+                post = Post.objects.get(id=post_id)
+                if str(post.author_id) != str(request.user.id):
+                    create_like_notification.delay(
+                        str(post.author_id), str(request.user.id), str(post_id)
+                    )
+            return Response(result, status=status.HTTP_200_OK)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)

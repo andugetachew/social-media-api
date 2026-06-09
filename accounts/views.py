@@ -15,8 +15,15 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.contrib.auth import authenticate
 from django.db.models import Q
-
+import uuid
 User = get_user_model()
+from notify.tasks import (
+    send_verification_email,
+    send_password_reset_email,
+    send_welcome_email,
+)
+from django.contrib.auth import authenticate
+from django.utils.crypto import get_random_string
 
 
 class UpdateOnlineStatusView(APIView):
@@ -70,22 +77,29 @@ class ResendVerificationView(APIView):
         )
         return Response({"message": "Verification email sent"})
 
-
 class UpdateProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def put(self, request):
         user = request.user
-        user.bio = request.data.get("bio", user.bio)
-        user.username = request.data.get("username", user.username)
+        data = request.data
+
+        if "username" in data:
+            user.username = data["username"]
+
+        if "email" in data:
+            user.email = data["email"]
+
+        if "bio" in data:
+            user.bio = data["bio"]
 
         if "profile_picture" in request.FILES:
             user.profile_picture = request.FILES["profile_picture"]
 
         user.save()
-        return Response(UserSerializer(user).data)
 
-
+        return Response(UserSerializer(user).data, status=status.HTTP_200_OK)
+    
 class DeleteAccountView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -125,6 +139,10 @@ class ReactivateAccountView(APIView):
         return Response({"error": "Invalid credentials"}, status=400)
 
 
+
+
+
+
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 
@@ -132,25 +150,99 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
+
+            # Fix: use uuid4 instead of get_random_string
+            verification_token = str(uuid.uuid4())
+            user.email_verification_token = verification_token
+            user.save()
+
+            send_verification_email.delay(str(user.id), user.email, verification_token)
+
             refresh = RefreshToken.for_user(user)
             return Response(
                 {
                     "user": UserSerializer(user).data,
                     "access": str(refresh.access_token),
                     "refresh": str(refresh),
+                    "message": "Please verify your email",
                 },
-                status=status.HTTP_201_CREATED,
+                status=201,
             )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=400)
 
 
-from django.contrib.auth import authenticate
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
-from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import UserSerializer
-from .models import User
+class VerifyEmailView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        token = request.query_params.get("token")
+        email = request.query_params.get("email")
+
+        try:
+            user = User.objects.get(email=email, email_verification_token=token)
+            user.email_verified = True
+            user.is_active = True
+            user.save()
+
+            # Send welcome email
+            send_welcome_email.delay(str(user.id), user.email, user.username)
+
+            return Response(
+                {"message": "Email verified successfully. You can now login."}
+            )
+        except User.DoesNotExist:
+            return Response({"error": "Invalid verification link"}, status=400)
+
+
+class ResendVerificationEmailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        if user.email_verified:
+            return Response({"error": "Email already verified"}, status=400)
+
+        # Generate new token
+        new_token = get_random_string(64)
+        user.email_verification_token = new_token
+        user.save()
+
+        send_verification_email.delay(str(user.id), user.email, new_token)
+        return Response({"message": "Verification email sent"})
+
+
+class ForgotPasswordView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get("email")
+        try:
+            user = User.objects.get(email=email)
+            reset_token = get_random_string(64)
+            user.password_reset_token = reset_token
+            user.save()
+            send_password_reset_email.delay(str(user.id), user.email, reset_token)
+            return Response({"message": "Password reset link sent to your email"})
+        except User.DoesNotExist:
+            return Response({"error": "Email not found"}, status=404)
+
+
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        token = request.data.get("token")
+        email = request.data.get("email")
+        new_password = request.data.get("new_password")
+
+        try:
+            user = User.objects.get(email=email, password_reset_token=token)
+            user.set_password(new_password)
+            user.password_reset_token = ""
+            user.save()
+            return Response({"message": "Password reset successful"})
+        except User.DoesNotExist:
+            return Response({"error": "Invalid reset link"}, status=400)
 
 
 class LoginView(APIView):

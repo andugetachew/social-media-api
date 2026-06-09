@@ -8,6 +8,8 @@ from .views import (
     UserSearchView,
     UpdateOnlineStatusView,
     UserStatusView,
+    DeleteAccountView,  # ← add this
+    ReactivateAccountView,  # ← add this
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import UpdateProfileView, UpdatePasswordView, UpdateProfilePhotoView
@@ -25,4 +27,10 @@ urlpatterns = [
     path("update-profile/", UpdateProfileView.as_view(), name="update-profile"),
     path("update-password/", UpdatePasswordView.as_view(), name="update-password"),
     path("update-photo/", UpdateProfilePhotoView.as_view(), name="update-photo"),
+    path(
+        "delete-account/", DeleteAccountView.as_view(), name="delete-account"
+    ),  # ← add
+    path(
+        "reactivate/", ReactivateAccountView.as_view(), name="reactivate-account"
+    ),  # ← add
 ]
