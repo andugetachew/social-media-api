@@ -11,6 +11,15 @@
 ![WebSockets](https://img.shields.io/badge/WebSockets-enabled-purple)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 
+## 🌐 Live Demo
+
+| | URL |
+|--|--|
+| **API Base** | https://social-media-api-sgt9.onrender.com |
+| **Swagger Docs** | https://social-media-api-sgt9.onrender.com/api/docs/ |
+| **ReDoc** | https://social-media-api-sgt9.onrender.com/api/redoc/ |
+| **Health Check** | https://social-media-api-sgt9.onrender.com/health/ |
+
 - 125 automated tests
 - 85% code coverage
 - Unit + integration + performance test layers
