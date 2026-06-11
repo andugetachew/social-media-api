@@ -2,7 +2,7 @@ from pathlib import Path
 from decouple import config
 from datetime import timedelta
 import os
-
+import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config(
@@ -42,6 +42,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -76,17 +77,14 @@ TEST = {
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
+import dj_database_url
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": config("DB_NAME"),
-        "USER": config("DB_USER"),
-        "PASSWORD": config("DB_PASSWORD"),
-        "HOST": config("DB_HOST"),
-        "PORT": config("DB_PORT"),
-    }
+    "default": dj_database_url.config(
+        default=config("DATABASE_URL", default=""),
+        conn_max_age=600,
+        ssl_require=not DEBUG,
+    )
 }
-
 
        #"LOCATION": "redis://127.0.0.1:6379/1",
 
@@ -113,14 +111,8 @@ CACHES = {
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
 
-AUTH_PASSWORD_VALIDATORS = [
-    #     {
-    #         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
-    #     },
-    #     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
-    #     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
-    #     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
-]
+AUTH_PASSWORD_VALIDATORS = []
+    
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
@@ -260,9 +252,9 @@ if USE_S3:
 else:
     STATIC_URL = "/static/"
     STATIC_ROOT = BASE_DIR / "staticfiles"
+    STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"  # ← add
     MEDIA_URL = "/media/"
     MEDIA_ROOT = BASE_DIR / "media"
-
 
 CHANNEL_LAYERS = {
     "default": {
@@ -286,6 +278,8 @@ if "test" in sys.argv:
     EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
     CELERY_TASK_ALWAYS_EAGER = True
     CELERY_TASK_EAGER_PROPAGATES = True
+    CELERY_TASK_ALWAYS_EAGER = not DEBUG
+
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 
