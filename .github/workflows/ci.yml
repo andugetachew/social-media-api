@@ -49,7 +49,11 @@ jobs:
           pip install -r requirements.txt
       - name: Run migrations
         env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
+          DB_NAME: test_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_HOST: localhost
+          DB_PORT: 5432
           REDIS_URL: redis://localhost:6379/0
           SECRET_KEY: ci-secret-key-not-for-production
           DEBUG: "True"
@@ -57,12 +61,16 @@ jobs:
           python manage.py migrate
       - name: Run tests
         env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
+          DB_NAME: test_db
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_HOST: localhost
+          DB_PORT: 5432
           REDIS_URL: redis://localhost:6379/0
           SECRET_KEY: ci-secret-key-not-for-production
           DEBUG: "True"
         run: |
-          pytest --cov=. --cov-report=xml --cov-report=term --tb=short -q
+          pytest --cov-report=xml
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:
