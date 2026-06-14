@@ -80,7 +80,7 @@ ASGI_APPLICATION = "config.asgi.application"
 import dj_database_url
 DATABASES = {
     "default": dj_database_url.config(
-        default=config("DATABASE_URL", default=""),
+        default=f"postgres://{config('DB_USER', default='postgres')}:{config('DB_PASSWORD', default='postgres')}@{config('DB_HOST', default='localhost')}:{config('DB_PORT', default='5432')}/{config('DB_NAME', default='test_db')}",
         conn_max_age=600,
         ssl_require=not DEBUG,
     )
