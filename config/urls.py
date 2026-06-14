@@ -4,9 +4,14 @@ from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework import permissions
+from django.http import JsonResponse
 from django.views.generic import RedirectView
+
+def health_check(request):
+    return JsonResponse({"status": "ok"})
 urlpatterns = [
     path("", RedirectView.as_view(url="/api/docs/"), name="root"),
+     path("health/", health_check, name="health"), 
     path("admin/", admin.site.urls),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema")),
