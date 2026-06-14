@@ -86,12 +86,13 @@ DATABASES = {
     )
 }
 
-       #"LOCATION": "redis://127.0.0.1:6379/1",
+       
+
 
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": os.getenv("REDIS_URL", "redis://redis:6379/1"),
+        "LOCATION": os.getenv("REDIS_URL", "redis://redis:6379/0"),  
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
             "CONNECTION_POOL_CLASS": "redis.BlockingConnectionPool",
@@ -102,10 +103,12 @@ CACHES = {
             "MAX_CONNECTIONS": 1000,
             "PICKLE_VERSION": -1,
         },
-        "KEY_PREFIX": "social_media",
-        "TIMEOUT": 300,  # 5 minutes default
+        "KEY_PREFIX": "social_media",  
+        "TIMEOUT": 300,
     }
 }
+
+CELERY_TASK_DEFAULT_QUEUE = "social_media_queue"  
 
 
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
@@ -223,7 +226,7 @@ CORS_ALLOW_HEADERS = [
     "origin",
     "user-agent",
     "x-csrftoken",
-    "x-requested-with",
+    "x-requested-with", 
 ]
 
 CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
@@ -233,6 +236,7 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = "UTC"
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_TASK_DEFAULT_QUEUE = "social_media_queue"
 
 USE_S3 = config("USE_S3", default=False, cast=bool)
 
