@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "storages",
     "django_filters",
     "chat",
+    'django_celery_beat',
     #"django_extensions",
 ]
 
