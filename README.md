@@ -10,6 +10,10 @@
 ![Docker](https://img.shields.io/badge/Docker-enabled-blue)
 ![WebSockets](https://img.shields.io/badge/WebSockets-enabled-purple)
 ![License](https://img.shields.io/badge/license-MIT-yellow)
+[![CI](https://github.com/andugetachew/social-media-api/actions/workflows/ci.yml/badge.svg)](https://github.com/andugetachew/social-media-api/actions)
+
+
+> A production-ready social media REST API — users post, follow, like, comment, and chat in real time. Built with Django REST Framework, PostgreSQL, Redis, Celery, Django Channels (WebSockets), and Docker.
 
 ## 🌐 Live Demo
 
@@ -19,6 +23,15 @@
 | **Swagger Docs** | https://social-media-api-sgt9.onrender.com/api/docs/ |
 | **ReDoc** | https://social-media-api-sgt9.onrender.com/api/redoc/ |
 | **Health Check** | https://social-media-api-sgt9.onrender.com/health/ |
+
+### Local Development
+
+- API: http://localhost:8000
+- Swagger Docs: http://localhost:8000/api/docs/
+- ReDoc: http://localhost:8000/api/redoc/
+- Health: http://localhost:8000/health/
+
+## 📊 Quality Metrics
 
 - 125 automated tests
 - 85% code coverage
@@ -44,11 +57,6 @@
 ### Comments & Follow System
 ![Comments and Follow](docs/swagger4.png)
 
-
-## 📊 Quality Metrics
-
-
-> A production-ready social media REST API — users post, follow, like, comment, and chat in real time. Built with Django REST Framework, PostgreSQL, Redis, Celery, Django Channels (WebSockets), and Docker.
 
 ---
 
@@ -97,27 +105,41 @@
 ---
 
 ## 🏗 System Architecture
+```text
 Client (React / Mobile)
-↓
-Nginx (port 80)
-├── /ws/  → Daphne (WebSockets)
-└── /     → Django REST API (HTTP)
-↓
-PostgreSQL 16        Redis 7
-(Primary DB)    (Cache + Celery Broker)
-↓
+        │
+        ▼
+Nginx (Reverse Proxy)
+ ├── HTTP → Django REST API
+ └── WebSocket → Daphne
+        │
+        ▼
+PostgreSQL      Redis
+                ├── Cache
+                └── Celery Broker
+        │
+        ▼
 Celery Workers
-Celery Beat (Scheduler)
+Celery Beat
+```
 
+## ✨ Data Models
 ---
 
-## 🗄 Data Model
-User ──< Post ──< Like
-──< Comment
-──< Follow >── User
-──< ChatRoom >── User
-└──< Message
-──< Notification
+```text
+User
+ ├── Posts
+ │     ├── Likes
+ │     └── Comments
+ │
+ ├── Following
+ ├── Followers
+ │
+ ├── ChatRooms
+ │      └── Messages
+ │
+ └── Notifications
+```
 
 ---
 
@@ -294,17 +316,6 @@ docker-compose exec web pytest tests/unit/test_posts.py -v
 
 ### ✅ Test Results: 125 passed — 85% coverage
 
-| Module | Coverage |
-|--------|----------|
-| `interactions/services.py` | 100% |
-| `chat/views.py` | 96% |
-| `config/cache_utils.py` | 94% |
-| `config/permissions.py` | 93% |
-| `comments/views.py` | 92% |
-| `notify/views.py` | 90% |
-| `interactions/views.py` | 88% |
-| `posts/views.py` | 76% |
-| `accounts/views.py` | 57% |
 
 ### Test Breakdown
 
@@ -343,7 +354,8 @@ docker-compose exec web pytest tests/unit/test_posts.py -v
 git clone https://github.com/andugetachew/social-media-api.git
 cd social-media-api
 cp .env.example .env
-docker-compose up --build -d
+docker compose up -d
+docker compose exec web python manage.py migrate
 ```
 
 - API: `http://localhost/`
@@ -396,6 +408,17 @@ docker-compose up --build -d
 | celery-beat | Periodic task scheduler | — |
 
 ---
+
+## ✨ Features
+
+- JWT authentication with email verification and password reset
+- User profiles with follow/unfollow relationships
+- Posts, comments, likes, and personalized feeds
+- Real-time chat and notifications via WebSockets
+- Redis caching and rate limiting
+- Celery background processing
+- Dockerized deployment
+- 125 automated tests with 85% code coverage
 
 ## 📄 License
 
