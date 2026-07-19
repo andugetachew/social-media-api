@@ -1,7 +1,7 @@
 # Social Media API
 
-![Coverage](https://img.shields.io/badge/coverage-85%25-brightgreen)
-![Tests](https://img.shields.io/badge/tests-125%20passed-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-94%25-brightgreen)
+![Tests](https://img.shields.io/badge/tests-214%20passed-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![Django](https://img.shields.io/badge/django-5.2-green)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue)
@@ -33,8 +33,8 @@
 
 ## 📊 Quality Metrics
 
-- 125 automated tests
-- 85% code coverage
+- 214 automated tests
+- 94% code coverage
 - Unit + integration + performance test layers
 - 0 failed tests
 - WebSocket consumer tests included
@@ -314,25 +314,10 @@ docker-compose exec web pytest --cov=. --cov-report=term-missing
 docker-compose exec web pytest tests/unit/test_posts.py -v
 ```
 
-### ✅ Test Results: 125 passed — 85% coverage
+### ✅ Test Results: 214 passed — 94% coverage
 
 
-### Test Breakdown
 
-| Category | Tests |
-|----------|-------|
-| Posts (CRUD, feed, likes) | ✅ 25 tests |
-| Authentication & accounts | ✅ 20 tests |
-| Chat views | ✅ 20 tests |
-| Cache utils | ✅ 15 tests |
-| Follow system | ✅ 15 tests |
-| Comments | ✅ 10 tests |
-| Permissions | ✅ 10 tests |
-| Notifications | ✅ 5 tests |
-| Integration (social flow) | ✅ 3 tests |
-| Performance benchmarks | ✅ 2 tests |
-
----
 
 ## 🎯 Design Decisions
 
