@@ -13,24 +13,36 @@ class RegisterThrottle(SimpleRateThrottle):
             "scope": self.scope,
             "ident": self.get_ident(request),
         }
-
-    def allow_request(self, request, view):
-        if request.user.is_authenticated:
-            return True
-        return super().allow_request(request, view)
+    # NOTE: previously had an `allow_request` override here that duplicated
+    # SimpleRateThrottle's own behavior (get_cache_key returning None already
+    # short-circuits to allow the request) — removed as dead code.
 
 
 class LoginThrottle(SimpleRateThrottle):
-    """Limit login attempts."""
+    """
+    Limit login attempts.
+
+    Keyed on (client IP, submitted email/username) rather than IP alone.
+    IP-only keying let a distributed attacker (rotating IPs/proxies) hammer
+    one target account with each request landing in its own fresh bucket,
+    while also collateral-throttling unrelated users sharing an IP (NAT,
+    corporate networks). Keying on the pair means many IPs targeting the
+    same account still share a bucket for that account, and one IP trying
+    many accounts is still capped per-account too.
+    """
 
     scope = "login"
 
     def get_cache_key(self, request, view):
         if request.user.is_authenticated:
             return None
+
+        identifier = request.data.get("email", "") if hasattr(request, "data") else ""
+        identifier = str(identifier).strip().lower()
+
         return self.cache_format % {
             "scope": self.scope,
-            "ident": self.get_ident(request),
+            "ident": f"{self.get_ident(request)}:{identifier}",
         }
 
 

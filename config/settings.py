@@ -53,7 +53,7 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "config.urls"
-
+FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:3000")
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",

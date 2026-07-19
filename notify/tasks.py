@@ -1,44 +1,72 @@
-from celery import shared_task
-from django.contrib.auth import get_user_model
-from .models import Notification
-from interactions.models import Follow
-from django.core.mail import send_mail
-from django.conf import settings
+import logging
 
+from celery import shared_task
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.core.mail import send_mail
+
+from interactions.models import Follow
+from .models import Notification
+
+logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
-@shared_task
-def send_single_notification(recipient_id, sender_id, post_id, message):
+@shared_task(bind=True, max_retries=3, default_retry_delay=30)
+def send_single_notification(self, recipient_id, sender_id, post_id, message):
+    """
+    Creates a single notification for a follower as part of a fan-out.
+    notification_type is "new_post" — this task is only ever invoked from
+    fan_out_notification_to_followers (post-created fan-out), never from a
+    like event. Previously hardcoded to "like", mislabeling every fan-out
+    notification.
+    """
     try:
         Notification.objects.create(
             recipient_id=recipient_id,
             sender_id=sender_id,
-            notification_type="like",
+            notification_type="new_post",
             message=message,
         )
-    except Exception as e:
-        print(f"Failed: {e}")
+    except Exception as exc:
+        logger.exception(
+            "Failed to create fan-out notification: recipient=%s sender=%s post=%s",
+            recipient_id, sender_id, post_id,
+        )
+        raise self.retry(exc=exc)
 
 
 @shared_task
 def fan_out_notification_to_followers(author_id, post_id, message, follower_count):
-    followers = Follow.objects.filter(following_id=author_id).values_list(
-        "follower_id", flat=True
+    followers = list(
+        Follow.objects.filter(following_id=author_id).values_list(
+            "follower_id", flat=True
+        )
     )
+
+    # follower_count is the caller's expected count (e.g. captured at the
+    # moment the post was created); log a mismatch instead of silently
+    # discarding it — a large gap can indicate a race between post creation
+    # and this task running (mass unfollow/follow in between).
+    actual_count = len(followers)
+    if follower_count is not None and actual_count != follower_count:
+        logger.warning(
+            "Follower count mismatch for author=%s post=%s: expected=%s actual=%s",
+            author_id, post_id, follower_count, actual_count,
+        )
 
     for follower_id in followers:
         send_single_notification.delay(follower_id, author_id, post_id, message)
 
-    return {"notifications_sent": len(followers), "status": "processing"}
+    return {"notifications_sent": actual_count, "status": "processing"}
 
 
-@shared_task
+@shared_task(autoretry_for=(Exception,), max_retries=3, retry_backoff=True)
 def send_verification_email(user_id, email, token):
     """Send email verification link"""
     subject = "Verify Your Email Address"
     verification_link = (
-        f"http://127.0.0.1:8000/api/auth/verify-email/?token={token}&email={email}"
+        f"{settings.FRONTEND_URL}/verify-email?token={token}&email={email}"
     )
     message = f"""
     Hello,
@@ -58,11 +86,13 @@ def send_verification_email(user_id, email, token):
     return f"Verification email sent to {email}"
 
 
-@shared_task
+@shared_task(autoretry_for=(Exception,), max_retries=3, retry_backoff=True)
 def send_password_reset_email(user_id, email, token):
     """Send password reset link"""
     subject = "Password Reset Request"
-    reset_link = f"http://127.0.0.1:8000/api/auth/password-reset-confirm/?token={token}&email={email}"
+    reset_link = (
+        f"{settings.FRONTEND_URL}/password-reset-confirm?token={token}&email={email}"
+    )
     message = f"""
     Hello,
 
@@ -83,7 +113,7 @@ def send_password_reset_email(user_id, email, token):
     return f"Password reset email sent to {email}"
 
 
-@shared_task
+@shared_task(autoretry_for=(Exception,), max_retries=3, retry_backoff=True)
 def send_welcome_email(user_id, email, username):
     """Send welcome email after verification"""
     subject = "Welcome to Social Media Platform!"
@@ -108,8 +138,8 @@ def send_welcome_email(user_id, email, username):
     return f"Welcome email sent to {email}"
 
 
-@shared_task
-def create_follow_notification(following_id, follower_id):
+@shared_task(bind=True, max_retries=3, default_retry_delay=30)
+def create_follow_notification(self, following_id, follower_id):
     try:
         Notification.objects.create(
             recipient_id=following_id,  # user2 receives notification
@@ -117,12 +147,16 @@ def create_follow_notification(following_id, follower_id):
             notification_type="follow",
             message="started following you",
         )
-    except Exception as e:
-        print(f"Failed: {e}")
+    except Exception as exc:
+        logger.exception(
+            "Failed to create follow notification: following=%s follower=%s",
+            following_id, follower_id,
+        )
+        raise self.retry(exc=exc)
 
 
-@shared_task
-def create_like_notification(post_owner_id, liker_id, post_id):
+@shared_task(bind=True, max_retries=3, default_retry_delay=30)
+def create_like_notification(self, post_owner_id, liker_id, post_id):
     try:
         Notification.objects.create(
             recipient_id=post_owner_id,
@@ -130,5 +164,9 @@ def create_like_notification(post_owner_id, liker_id, post_id):
             notification_type="like",
             message="liked your post",
         )
-    except Exception as e:
-        print(f"Failed: {e}")
+    except Exception as exc:
+        logger.exception(
+            "Failed to create like notification: post_owner=%s liker=%s post=%s",
+            post_owner_id, liker_id, post_id,
+        )
+        raise self.retry(exc=exc)

@@ -367,27 +367,11 @@ docker compose exec web python manage.py migrate
 ## 🔑 Environment Variables
 
 ```env
-SECRET_KEY=your-secret-key
-DEBUG=False
-
-DB_NAME=social_media_db
-DB_USER=postgres
-DB_PASSWORD=yourpassword
+SECRET_KEY=
 DB_HOST=db
-DB_PORT=5432
-
-REDIS_URL=redis://redis:6379/0
-CELERY_BROKER_URL=redis://redis:6379/0
-CELERY_RESULT_BACKEND=redis://redis:6379/0
-
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_HOST_USER=your@email.com
-EMAIL_HOST_PASSWORD=your-app-password
-EMAIL_USE_TLS=True
-DEFAULT_FROM_EMAIL=noreply@yourdomain.com
-
-FRONTEND_URL=http://localhost:3000
+DATABASE_URL=
+REDIS_URL=
+EMAIL_HOST=
 ```
 
 ---

@@ -1,9 +1,12 @@
-from notify.tasks import fan_out_notification_to_followers
-from django.contrib.auth import get_user_model
-from django.db import transaction
-from .models import Post, Like
-from interactions.models import Follow
+import uuid
 from typing import Dict
+
+from django.contrib.auth import get_user_model
+from django.db import IntegrityError, transaction
+
+from interactions.models import Follow
+from notify.tasks import fan_out_notification_to_followers
+from .models import Like, Post
 
 User = get_user_model()
 
@@ -12,23 +15,31 @@ class PostService:
     @staticmethod
     def create_post(author_id: str, content: str) -> Dict:
         """Create a new post with background notifications."""
-        if not content or len(content) > 280:
+        if not content or not content.strip() or len(content) > 280:
             raise ValueError("Content must be 1-280 characters")
 
         with transaction.atomic():
             post = Post.objects.create(author_id=author_id, content=content)
 
-            # Get follower count
             follower_count = Follow.objects.filter(following_id=author_id).count()
 
-            # NEW: Fan out notifications in background (does NOT block response)
             if follower_count > 0:
                 author = User.objects.get(id=author_id)
-                fan_out_notification_to_followers.delay(
-                    author_id,
-                    str(post.id),
-                    f"{author.username} posted new content",
-                    follower_count,
+
+                # transaction.on_commit defers the .delay() call until this
+                # transaction actually commits. Previously .delay() fired
+                # immediately inside the atomic block — with Redis as the
+                # broker, a worker can pick up the task and query for this
+                # post before the transaction commits and the row becomes
+                # visible, since .delay() doesn't wait for commit.
+                post_id = str(post.id)
+                transaction.on_commit(
+                    lambda: fan_out_notification_to_followers.delay(
+                        author_id,
+                        post_id,
+                        f"{author.username} posted new content",
+                        follower_count,
+                    )
                 )
 
             return {
@@ -36,7 +47,7 @@ class PostService:
                 "content": post.content,
                 "created_at": post.created_at,
                 "author_id": str(post.author_id),
-                "notifications_queued": follower_count,  # Shows user we queued them
+                "notifications_queued": follower_count,
             }
 
     @staticmethod
@@ -57,7 +68,12 @@ class PostService:
         except Post.DoesNotExist:
             raise ValueError("Post not found")
 
-        like, created = Like.objects.get_or_create(user_id=user_id, post_id=post_id)
+    
+        try:
+            like, created = Like.objects.get_or_create(user_id=user_id, post_id=post_id)
+        except IntegrityError:
+            like, created = Like.objects.get(user_id=user_id, post_id=post_id), False
+
         if not created:
             like.delete()
             return {

@@ -1,18 +1,25 @@
 from django.urls import path
+from rest_framework_simplejwt.views import TokenRefreshView
+
 from .views import (
-    RegisterView,
+    DeleteAccountView,
+    ForgotPasswordView,
     LoginView,
-    MeView,
     LogoutView,
+    MeView,
+    PasswordResetConfirmView,
+    ReactivateAccountView,
+    RegisterView,
+    ResendVerificationEmailView,
+    UpdateOnlineStatusView,
+    UpdatePasswordView,
+    UpdateProfilePhotoView,
+    UpdateProfileView,
     UserDetailView,
     UserSearchView,
-    UpdateOnlineStatusView,
     UserStatusView,
-    DeleteAccountView,  # ← add this
-    ReactivateAccountView,  # ← add this
+    VerifyEmailView,
 )
-from rest_framework_simplejwt.views import TokenRefreshView
-from .views import UpdateProfileView, UpdatePasswordView, UpdateProfilePhotoView
 
 urlpatterns = [
     path("register/", RegisterView.as_view(), name="register"),
@@ -27,10 +34,19 @@ urlpatterns = [
     path("update-profile/", UpdateProfileView.as_view(), name="update-profile"),
     path("update-password/", UpdatePasswordView.as_view(), name="update-password"),
     path("update-photo/", UpdateProfilePhotoView.as_view(), name="update-photo"),
+    path("delete-account/", DeleteAccountView.as_view(), name="delete-account"),
+    path("reactivate/", ReactivateAccountView.as_view(), name="reactivate-account"),
+
+    path("verify-email/", VerifyEmailView.as_view(), name="verify-email"),
     path(
-        "delete-account/", DeleteAccountView.as_view(), name="delete-account"
-    ),  # ← add
+        "resend-verification/",
+        ResendVerificationEmailView.as_view(),
+        name="resend-verification",
+    ),
+    path("forgot-password/", ForgotPasswordView.as_view(), name="forgot-password"),
     path(
-        "reactivate/", ReactivateAccountView.as_view(), name="reactivate-account"
-    ),  # ← add
+        "password-reset-confirm/",
+        PasswordResetConfirmView.as_view(),
+        name="password-reset-confirm",
+    ),
 ]

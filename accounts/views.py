@@ -1,29 +1,32 @@
-from rest_framework import status
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import RegisterSerializer, LoginSerializer, UserSerializer
-from .services import UserService
-from django.contrib.auth import get_user_model
-from .serializers import UserSerializer
-from django.utils import timezone
-from django.core.mail import send_mail
+import uuid
+
 from django.conf import settings
-from .models import User
+from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from django.contrib.auth import authenticate
-from django.db.models import Q
-import uuid
-User = get_user_model()
+from django.utils import timezone
+from django.utils.crypto import get_random_string
+
+from rest_framework import status
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
+
 from notify.tasks import (
-    send_verification_email,
     send_password_reset_email,
+    send_verification_email,
     send_welcome_email,
 )
-from django.contrib.auth import authenticate
-from django.utils.crypto import get_random_string
+from config.throttling import (
+    BurstRateThrottle,
+    LoginThrottle,
+    RegisterThrottle,
+    SustainedRateThrottle,
+)
+from .serializers import LoginSerializer, RegisterSerializer, UserSerializer
+
+User = get_user_model()
 
 
 class UpdateOnlineStatusView(APIView):
@@ -51,31 +54,26 @@ class UserStatusView(APIView):
 
 
 class EmailVerificationView(APIView):
+    """
+    Legacy token-in-path verification link (kept for backward compatibility
+    with any existing emailed links). Prefer VerifyEmailView going forward.
+    """
+
     permission_classes = [AllowAny]
 
     def get(self, request, token):
         try:
             user = User.objects.get(email_verification_token=token)
-            user.email_verified = True
-            user.save()
-            return Response({"message": "Email verified successfully"})
         except User.DoesNotExist:
             return Response({"error": "Invalid token"}, status=400)
 
+        user.email_verified = True
+        user.is_active = True
+        user.save()
+        return Response({"message": "Email verified successfully"})
 
-class ResendVerificationView(APIView):
-    permission_classes = [IsAuthenticated]
 
-    def post(self, request):
-        user = request.user
-        send_mail(
-            "Verify your email",
-            f"Click the link to verify: http://127.0.0.1:8000/api/auth/verify/{user.email_verification_token}/",
-            settings.DEFAULT_FROM_EMAIL,
-            [user.email],
-            fail_silently=False,
-        )
-        return Response({"message": "Verification email sent"})
+
 
 class UpdateProfileView(APIView):
     permission_classes = [IsAuthenticated]
@@ -97,9 +95,9 @@ class UpdateProfileView(APIView):
             user.profile_picture = request.FILES["profile_picture"]
 
         user.save()
-
         return Response(UserSerializer(user).data, status=status.HTTP_200_OK)
-    
+
+
 class DeleteAccountView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -110,7 +108,6 @@ class DeleteAccountView(APIView):
         user.is_active = False
         user.save()
 
-        # Blacklist all tokens
         from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 
         OutstandingToken.objects.filter(user=user).delete()
@@ -127,48 +124,53 @@ class ReactivateAccountView(APIView):
 
         try:
             user = User.objects.get(email=email, is_deleted=True)
-            if user.check_password(password):
-                user.is_deleted = False
-                user.is_active = True
-                user.deleted_at = None
-                user.save()
-                return Response({"message": "Account reactivated"})
         except User.DoesNotExist:
-            pass
+            return Response({"error": "Invalid credentials"}, status=400)
+
+        if user.check_password(password):
+            user.is_deleted = False
+            user.is_active = True
+            user.deleted_at = None
+            user.save()
+            return Response({"message": "Account reactivated"})
 
         return Response({"error": "Invalid credentials"}, status=400)
 
 
-
-
-
-
 class RegisterView(APIView):
     permission_classes = [AllowAny]
+   
+    throttle_classes = [RegisterThrottle, BurstRateThrottle, SustainedRateThrottle]
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.save()
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
 
-            # Fix: use uuid4 instead of get_random_string
-            verification_token = str(uuid.uuid4())
-            user.email_verification_token = verification_token
-            user.save()
+        user = serializer.save()
 
-            send_verification_email.delay(str(user.id), user.email, verification_token)
 
-            refresh = RefreshToken.for_user(user)
-            return Response(
-                {
-                    "user": UserSerializer(user).data,
-                    "access": str(refresh.access_token),
-                    "refresh": str(refresh),
-                    "message": "Please verify your email",
-                },
-                status=201,
-            )
-        return Response(serializer.errors, status=400)
+        user.is_active = False
+        user.email_verification_token = str(uuid.uuid4())
+        user.save()
+
+        send_verification_email.delay(
+            str(user.id), user.email, user.email_verification_token
+        )
+
+        # Token is still issued so the client can, e.g., poll verification
+        # status — but protected views must check is_active/email_verified,
+        # not just token validity, since the account isn't active yet.
+        refresh = RefreshToken.for_user(user)
+        return Response(
+            {
+                "user": UserSerializer(user).data,
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "message": "Please verify your email",
+            },
+            status=201,
+        )
 
 
 class VerifyEmailView(APIView):
@@ -180,18 +182,16 @@ class VerifyEmailView(APIView):
 
         try:
             user = User.objects.get(email=email, email_verification_token=token)
-            user.email_verified = True
-            user.is_active = True
-            user.save()
-
-            # Send welcome email
-            send_welcome_email.delay(str(user.id), user.email, user.username)
-
-            return Response(
-                {"message": "Email verified successfully. You can now login."}
-            )
         except User.DoesNotExist:
             return Response({"error": "Invalid verification link"}, status=400)
+
+        user.email_verified = True
+        user.is_active = True
+        user.save()
+
+        send_welcome_email.delay(str(user.id), user.email, user.username)
+
+        return Response({"message": "Email verified successfully. You can now login."})
 
 
 class ResendVerificationEmailView(APIView):
@@ -202,8 +202,7 @@ class ResendVerificationEmailView(APIView):
         if user.email_verified:
             return Response({"error": "Email already verified"}, status=400)
 
-        # Generate new token
-        new_token = get_random_string(64)
+        new_token = str(uuid.uuid4())
         user.email_verification_token = new_token
         user.save()
 
@@ -216,15 +215,23 @@ class ForgotPasswordView(APIView):
 
     def post(self, request):
         email = request.data.get("email")
+
+     
+        generic_response = Response(
+            {"message": "If that email is registered, a reset link has been sent."}
+        )
+
         try:
             user = User.objects.get(email=email)
-            reset_token = get_random_string(64)
-            user.password_reset_token = reset_token
-            user.save()
-            send_password_reset_email.delay(str(user.id), user.email, reset_token)
-            return Response({"message": "Password reset link sent to your email"})
         except User.DoesNotExist:
-            return Response({"error": "Email not found"}, status=404)
+            return generic_response
+
+        reset_token = get_random_string(64)
+        user.password_reset_token = reset_token
+        user.save()
+        send_password_reset_email.delay(str(user.id), user.email, reset_token)
+
+        return generic_response
 
 
 class PasswordResetConfirmView(APIView):
@@ -237,16 +244,26 @@ class PasswordResetConfirmView(APIView):
 
         try:
             user = User.objects.get(email=email, password_reset_token=token)
-            user.set_password(new_password)
-            user.password_reset_token = ""
-            user.save()
-            return Response({"message": "Password reset successful"})
         except User.DoesNotExist:
             return Response({"error": "Invalid reset link"}, status=400)
+
+        # Previously missing: reset path let a caller set an arbitrarily
+        # weak password, unlike UpdatePasswordView which validates.
+        try:
+            validate_password(new_password, user)
+        except ValidationError as e:
+            return Response({"error": e.messages}, status=400)
+
+        user.set_password(new_password)
+        user.password_reset_token = ""
+        user.save()
+        return Response({"message": "Password reset successful"})
 
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
+    # Same gap as RegisterView, plus the same replace-not-extend fix.
+    throttle_classes = [LoginThrottle, BurstRateThrottle, SustainedRateThrottle]
 
     def post(self, request):
         email_or_username = request.data.get("email")
@@ -265,17 +282,28 @@ class LoginView(APIView):
         except User.DoesNotExist:
             return Response({"error": "Invalid credentials"}, status=401)
 
-        if user.check_password(password):
-            refresh = RefreshToken.for_user(user)
+        if not user.check_password(password):
+            return Response({"error": "Invalid credentials"}, status=401)
+
+        
+        if not user.is_active:
+            if getattr(user, "is_deleted", False):
+                return Response(
+                    {"error": "Account is deactivated. Please reactivate it first."},
+                    status=403,
+                )
             return Response(
-                {
-                    "access": str(refresh.access_token),
-                    "refresh": str(refresh),
-                    "user": UserSerializer(user).data,
-                }
+                {"error": "Please verify your email before logging in."}, status=403
             )
 
-        return Response({"error": "Invalid credentials"}, status=401)
+        refresh = RefreshToken.for_user(user)
+        return Response(
+            {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "user": UserSerializer(user).data,
+            }
+        )
 
 
 class MeView(APIView):
@@ -289,8 +317,13 @@ class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        refresh_token = request.data.get("refresh")
+       
+        if not refresh_token:
+            return Response(
+                {"error": "Refresh token is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
         try:
-            refresh_token = request.data.get("refresh")
             token = RefreshToken(refresh_token)
             token.blacklist()
             return Response(
@@ -308,10 +341,9 @@ class UserDetailView(APIView):
     def get(self, request, user_id):
         try:
             user = User.objects.get(id=user_id)
-            serializer = UserSerializer(user)
-            return Response(serializer.data)
         except User.DoesNotExist:
             return Response({"error": "User not found"}, status=404)
+        return Response(UserSerializer(user).data)
 
 
 class UserSearchView(APIView):
@@ -323,28 +355,7 @@ class UserSearchView(APIView):
             users = User.objects.filter(username__icontains=query)[:10]
         else:
             users = User.objects.none()
-        serializer = UserSerializer(users, many=True)
-        return Response(serializer.data)
-
-
-class UpdateProfileView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def put(self, request):
-        user = request.user
-        data = request.data
-
-        if "username" in data:
-            user.username = data["username"]
-
-        if "email" in data:
-            user.email = data["email"]
-
-        if "bio" in data:
-            user.bio = data["bio"]
-
-        user.save()
-        return Response(UserSerializer(user).data)
+        return Response(UserSerializer(users, many=True).data)
 
 
 class UpdatePasswordView(APIView):
